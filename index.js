@@ -3,6 +3,10 @@ import bodyparser from "body-parser";
 import pg from "pg";
 import fileupload from "express-fileupload";
 import { Buffer } from "buffer"
+import passport from "passport";
+import GoogleStrategy from "passport-google-oauth2";
+import session from "express-session";
+import env from "dotenv";
 
 function get_date_time() {
     var dateraw = new Date();
@@ -88,109 +92,203 @@ function get_date_time() {
 }
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 3000;
+env.config();
+
+app.use(
+    session({
+      secret: process.env.SESSION_SECRET,
+      resave: false,
+      saveUninitialized: true,
+    })
+  );
 
 app.use(express.static("public"));
 app.use(bodyparser.urlencoded({ extended: true }));
 app.use(fileupload());
 
-const db = new pg.Client({
-    user: "postgres.dgaaajenixemzvusrpel",
-    host: "aws-0-ap-south-1.pooler.supabase.com",
-    database: "postgres",
-    password: "Harshkvr@2005",
-    post: 5432,
-})
+app.use(passport.initialize());
+app.use(passport.session());
 
+const db = new pg.Client({
+    user: process.env.PG_USER,
+    host: process.env.PG_HOST,
+    database: process.env.PG_DATABASE,
+    password: process.env.PG_PASSWORD,
+    port: process.env.PG_PORT,
+})
 db.connect();
 
-var data;
-
-db.query("SELECT * FROM blogs ORDER BY id desc LIMIT 10 OFFSET ($1 - 1) * 10", [1], (err, res) => {
-    if (err) {
-        console.error("error executing query", err.stack);
-    }
-    else {
-        data = res.rows;
-    }
-});
-
-
 app.get("/", async (req, res) => {
-    const blogCountResult = await db.query("SELECT COUNT(id) as count from blogs;");
-    const blogCount = blogCountResult.rows[0].count;
+    if (req.isAuthenticated()) {
+        const blogCountResult = await db.query("SELECT COUNT(id) as count from blogs WHERE email = $1;",[req.user.email]);
+        const blogCount = blogCountResult.rows[0].count;
 
-    var page = req.query.pg || 1;
+        var page = req.query.pg || 1;
 
-    const offset = (page - 1) * 10;
+        const offset = (page - 1) * 10;
 
-    page = parseInt(page);
+        page = parseInt(page);
 
-    const totalPages = Math.ceil(blogCount / 10);
+        const totalPages = Math.ceil(blogCount / 10);
 
-    await db.query("SELECT * FROM blogs ORDER BY id desc LIMIT 10 OFFSET $1", [offset], (err, result) => {
-        if (err) {
-            console.error("error executing query", err.stack);
-        } else {
-            const data = result.rows;
-            res.render("./main.ejs", { blogs: data, curr: page, max: totalPages });
-        }
+        await db.query("SELECT * FROM blogs INNER JOIN users ON users.email = blogs.email WHERE blogs.email = $1 ORDER BY blogs.id DESC LIMIT 10 OFFSET $2", [req.user.email, offset], (err, result) => {
+            if (err) {
+                console.error("error executing query", err.stack);
+            } else {
+                const data = result.rows;
+                res.render("./main.ejs", { blogs: data, curr: page, max: totalPages , name : req.user.name, pfp : req.user.pfp});
+            }
     });
+    }
+    else{
+        res.redirect("/login");
+    }
+    
 });
 
 app.get("/login", (req, res) => {
     res.render("login.ejs");
 })
 
+app.get(
+    "/auth/google",
+    passport.authenticate("google", {
+      scope: ["profile", "email"],
+    })
+  );
+
+app.get(
+    "/auth/google/blogs",
+    passport.authenticate("google", {
+        successRedirect: "/",
+        failureRedirect: "/login",
+    })
+);
+
+app.get("/logout", (req, res) => {
+    req.logout(function (err) {
+      if (err) {
+        return next(err);
+      }
+      res.redirect("/");
+    });
+  });
+
 app.get("/addblog", (req, res) => {
-    res.render("./edit.ejs");
+    if (req.isAuthenticated()) {
+        res.render("./edit.ejs");
+    }
+    else
+    {
+        res.redirect("/login");
+    }
 })
 
 app.post("/addblog", async (req, res) => {
-    var date_time = get_date_time();
+    if (req.isAuthenticated()) {
+        var date_time = get_date_time();
 
+        if (req.files) {
+            const { name, data } = req.files.pic;
 
-    if (req.files) {
-        const { name, data } = req.files.pic;
+            const base64 = Buffer.from(data,
+                "binary").toString("base64");
 
-        const base64 = Buffer.from(data,
-            "binary").toString("base64");
-
-        await db.query("INSERT INTO blogs (content, date, month, img) VALUES ($1, $2, $3, $4)", [req.body.text, date_time.date, date_time.month, base64], () => {
-            res.redirect("/");
-        });
+            await db.query("INSERT INTO blogs (content,email, date, month, img) VALUES ($1, $2, $3, $4, $5)", [req.body.text,req.user.email, date_time.date, date_time.month, base64], () => {
+                res.redirect("/");
+            });
+        }
+        else {
+            await db.query("INSERT INTO blogs (content,email, date, month) VALUES ($1, $2, $3, $4)", [req.body.text,req.user.email, date_time.date, date_time.month], () => {
+                res.redirect("/");
+            });
+        }
     }
-    else {
-        await db.query("INSERT INTO blogs (content, date, month) VALUES ($1, $2, $3)", [req.body.text, date_time.date, date_time.month], () => {
-            res.redirect("/");
-        });
+    else{
+        res.redirect("/login");
     }
 })
 
 app.get("/deleteblog", async (req, res) => {
-    const blogId = req.query.id;
+    if (req.isAuthenticated()) {
+        const blogId = req.query.id;
 
-    await db.query("DELETE FROM blogs WHERE id = $1", [blogId], () => {
-        res.redirect("/");
-    });
+        await db.query("DELETE FROM blogs WHERE id = $1", [blogId], () => {
+            res.redirect("/");
+        });
+    }
+    else{
+        res.redirect("/login");
+    }
 })
 
 app.get("/updateblog", async (req, res) => {
-    const blogId = req.query.id;
+    if (req.isAuthenticated()) {
+        const blogId = req.query.id;
 
-    const result = await db.query("SELECT * FROM blogs WHERE id = $1", [blogId]);
-    const blog = result.rows[0];
+        const result = await db.query("SELECT * FROM blogs WHERE id = $1", [blogId]);
+        const blog = result.rows[0];
 
-    res.render("./edit.ejs", { blog: blog });
+        res.render("./edit.ejs", { blog: blog });
+    }
+    else
+    {
+        res.redirect("/login");
+    }
 });
 
 app.post("/updateblog", async (req, res) => {
-    const { id, content } = req.body;
+    if (req.isAuthenticated()) {
+        const { id, content } = req.body;
 
-    await db.query("UPDATE blogs SET content = $1 WHERE id = $2", [content, id], () => {
-        res.redirect("/");
-    });
+        await db.query("UPDATE blogs SET content = $1 WHERE id = $2", [content, id], () => {
+            res.redirect("/");
+        });
+    }
+    else{
+        res.redirect("/login");
+    }
 })
+
+passport.use(
+    "google",
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: "http://localhost:3000/auth/google/blogs",
+        userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+      },
+      async (accessToken, refreshToken, profile, cb) => {
+        try {
+          console.log(profile);
+          const result = await db.query("SELECT * FROM users WHERE email = $1", [
+            profile.email,
+          ]);
+          if (result.rows.length === 0) {
+            const newUser = await db.query(
+              "INSERT INTO users (email, name, pfp) VALUES ($1, $2, $3)",
+              [profile.email, profile.displayName, profile.picture]
+            );
+            return cb(null, newUser.rows[0]);
+          } else {
+            return cb(null, result.rows[0]);
+          }
+        } catch (err) {
+          return cb(err);
+        }
+      }
+    )
+  );
+
+passport.serializeUser((user, cb) => {
+    cb(null, user);
+});
+
+passport.deserializeUser((user, cb) => {
+    cb(null, user);
+});
 
 app.listen(port, () => {
     console.log(`server running on port ${port}`);
