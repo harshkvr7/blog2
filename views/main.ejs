@@ -61,7 +61,11 @@
                                 <% } %>
                         </div>
                         <div class="curr">
+                            <% if(blogs.length == 0){ %>
+                                Use plus icon to add blogs
+                            <% }else{ %>
                             <%= curr %>
+                            <% } %>
                         </div>
                         <div class="next">
                             <% if(curr < max){ %>
