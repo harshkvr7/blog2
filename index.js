@@ -98,7 +98,6 @@ env.config();
 app.use(
     session({
         secret: process.env.SESSION_SECRET,
-        store: new RedisStore(),
         resave: false,
         saveUninitialized : true,
     })
@@ -258,7 +257,7 @@ passport.use(
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: "https://blog2-q72m.onrender.com/auth/google/blogs",
+        callbackURL: "http://localhost:3000/auth/google/blogs",
         userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
       },
       async (accessToken, refreshToken, profile, cb) => {
