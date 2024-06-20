@@ -98,6 +98,7 @@ env.config();
 app.use(
     session({
         secret: process.env.SESSION_SECRET,
+        store: new RedisStore(),
         resave: false,
         saveUninitialized : true,
     })
