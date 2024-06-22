@@ -9,37 +9,32 @@
         </form>
     </div>
 <%}else {%>
-<div class="blog-container" id="edit-container">
-    <form method="post" action="/addblog" encType="multipart/form-data">
-        <label for="pic" class="custom-file-upload">
-            Upload Image
-        </label>
-        <div class="image-preview">
-            <img>
-        </div>
-        <input type="file" id="pic" name="pic" accept="image/*">
-        <textarea name="text" id="text" placeholder="write here."></textarea>
-        <button>Add</button>
-    </form>
-</div>
+    <div class="blog-container" id="edit-container">
+        <form method="post" action="/addblog" enctype="multipart/form-data">
+            <label for="pic" class="custom-file-upload">
+                Upload Image
+            </label>
+            <div class="image-preview">
+                <img id="preview-image">
+            </div>
+            <input type="file" id="pic" name="pic" accept="image/*">
+            <textarea name="text" id="text" placeholder="Write here."></textarea>
+            <button>Add</button>
+        </form>
+    </div>
 <% } %>
 
 <script>
-    $("input").change(function(e) 
-    {
-        for (var i = 0; i < e.originalEvent.srcElement.files.length; i++) 
-        {
-            var file = e.originalEvent.srcElement.files[i];
-            img = $("img");
+    $("#pic").change(function(e) {
+        var file = e.target.files[0];
+        var img = $("#preview-image");
 
-            var reader = new FileReader();
+        var reader = new FileReader();
 
-            reader.onloadend = function() {
-                img.src = reader.result;
-            }
-            
-            reader.readAsDataURL(file);
-            $("input").after(img);
+        reader.onload = function(e) {
+            img.attr('src', e.target.result);
         }
+        
+        reader.readAsDataURL(file);
     });
 </script>
