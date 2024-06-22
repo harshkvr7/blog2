@@ -307,3 +307,7 @@ a:hover{
     display: flex;
     justify-content: center;
   }
+
+  .image-preview img{
+    width: 100%;
+  }
