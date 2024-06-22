@@ -15,9 +15,10 @@ a{
 
 ::-webkit-scrollbar-thumb {
     border: 6px solid #fff8f6;
-    background-color: #000000;
+    background-color: #6d6d6d;
     min-height: 24px;
     min-width: 24px;
+    border-radius: 15px;
 }
 ::-webkit-scrollbar-track {
     border: 8px solid #fff8f6;
@@ -41,7 +42,7 @@ header{
 
 .blog-container{
     margin-top: 20vh;
-    margin-left: 50vw;
+    margin-left: 45vw;
     margin-right: auto;
     max-width: 400px;
     display: flex;
@@ -64,7 +65,7 @@ header{
 #first-card{
     position: fixed;
     top: 20vh;
-    left: 28vw;
+    left: 30vw;
     padding: 20px;
     font-family: "Lato", sans-serif;
     font-weight: 500;
@@ -143,7 +144,7 @@ a:hover{
     width: 100%;
 } 
 
-@media screen and (max-width: 1280px) {
+@media screen and (max-width: 1000px) {
     #first-card{
         position: initial;
         padding: 10px;
